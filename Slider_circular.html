@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<script src="http://d3js.org/d3.v3.min.js"></script>
+
+<style>
+.fixedViz {
+  position: fixed;
+  top: 100px;
+  left: 300px;
+}
+</style>
+
+<body>
+
+<div class="scroller"></div>
+
+<script>
+
+var width = 600,
+    height = 600,
+    n = 50, 
+    radius = 250,
+    visible = 15,
+    tau = Math.PI * 2,
+    speed = 500;
+ 
+// n-visible+2  -- allow for the very first item to be visible at position 2 (position 1 (12 o'clock) is hidden)
+d3.select('.scroller').style('height', ((n-visible+2) * speed + height) + 'px');
+
+var data = d3.range(n).map(function(d, i) {
+
+  // last 'n' items are visible...
+
+  // if index >= n - visible
+  //    position along the circle
+  // else
+  //    not visible, position at 12 o'clock.
+
+  if (i >= (n - visible)) {
+    var k = n - i + visible/4; // add a quarter turn.
+
+    var a = k / visible;
+    var datum= {
+      x: Math.cos(a * tau * -1) * radius,
+      y: Math.sin(a * tau * -1) * radius
+    };
+    return datum;
+  } else {
+    return  {
+      x: Math.cos(3 * tau/4) * radius,
+      y: Math.sin(3 * tau/4) * radius
+    };
+  }
+  
+});
+
+
+var opacityScale = d3.scale.linear()
+  .domain([0, (radius * -19/20), (radius * -1)])
+  .range([1, 1, 0]);
+
+var rScale = d3.scale.linear()
+  .domain([0, (radius * -19/20), (radius * -1)])
+  .range([10, 10, 0]);
+
+var colorScale = d3.scale.category20c();
+
+var svg = d3.select('body')
+  .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('class', 'fixedViz')
+    .append('g')
+    .attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')');
+
+svg.selectAll('circle')
+  .data(data)
+  .enter()
+  .append('circle')
+    .attr('r', 10)
+    .attr('cx', function(d) {
+      return d.x;
+    })
+    .attr('cy', function(d) {
+      return d.y;
+    })
+    .attr('r', function(d) {
+      return rScale(d.y) || 0;
+    })
+    .attr('opacity', function(d) {
+      return opacityScale(d.y);
+    })
+    .attr('fill', function(d, i) {
+      return colorScale(i);
+    })
+    .attr('index', function(d, i) {
+      return i;
+    });
+
+svg.selectAll('text')
+  .data(data)
+  .enter()
+  .append('text')
+    .attr('x', function(d) {
+      return d.x;
+    })
+    .attr('y', function(d) {
+      return d.y;
+    })
+    .attr('opacity', function(d) {
+      return opacityScale(d.y);
+    })
+    .attr('text-anchor', 'middle')
+    .attr('dy', '0.3em')
+    .style('font-size', '12px')
+    .text(function(d, i) {
+      return i;
+    });
+
+
+var startIndex = n - visible,
+  endIndex = n,
+  delta,
+  step;
+
+function getCoord(d, i, trigFn) {
+  // If this coordinate is outside the visible range put it at 12 o'clock
+  if (i < startIndex || i >= endIndex) {
+      return trigFn(3 * tau/4) * radius;
+  }
+
+  var visibleIndex = n - i; // normalise the index 
+  var k = visibleIndex - delta + (visible/4); // increment by delta and add a quarter turn.
+
+  var angle = k / visible; // angle is a fraction of how many visible elements there are
+  return trigFn(angle * tau * -1) * radius;
+}
+
+function getX(d, i) {
+  return getCoord(d, i, Math.cos);
+}
+
+function getY(d, i) {
+  return getCoord(d, i, Math.sin);
+}
+
+window.onscroll = function() {
+
+
+  var t = document.body.scrollTop;
+
+    // update delta and step;
+  delta = t / speed;
+  step = Math.floor(delta)
+
+  //update start and end index
+  startIndex = n - visible - step;
+  endIndex = n - step;
+
+  if (startIndex < 0) {
+    return;
+  }
+  if (endIndex < visible) {
+    endIndex = visible;
+  }
+
+  // redraw the circles and labels at their new coordinates.
+  svg.selectAll('circle')
+    .attr('cx', getX)
+    .attr('cy', getY)
+    .attr('r', function(d, i) {
+      return rScale(getY(d, i)) || 0;
+    })
+    .attr('opacity', function(d, i) {
+      return opacityScale(getY(d, i));
+    });
+
+
+  svg.selectAll('text')
+      .attr('x', getX)
+      .attr('y',getY)
+      .attr('opacity', function(d, i) {
+        return opacityScale(getY(d, i));
+      });
+};
+
+</script>
